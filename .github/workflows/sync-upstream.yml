@@ -1,10 +1,10 @@
 name: Sync with upstream
 
-# Keeps this fork's main merged up from Egonex-AI/Understand-Anything, and
-# tries to bring those same changes into the long-lived feature branch as a
-# reviewable PR. The feature branch has diverged too far from upstream to
-# auto-merge blindly, so a conflicting sync files an issue instead of
-# force-landing anything.
+# Keeps this fork's upstream-mirror branch merged up from
+# Egonex-AI/Understand-Anything, and tries to bring those same changes into
+# pascal-understood (the default branch) as a reviewable PR. That branch has
+# diverged too far from upstream to auto-merge blindly, so a conflicting
+# sync files an issue instead of force-landing anything.
 on:
   schedule:
     - cron: '0 6 * * *'
@@ -17,7 +17,7 @@ permissions:
 
 env:
   UPSTREAM_URL: https://github.com/Egonex-AI/Understand-Anything.git
-  FEATURE_BRANCH: feat/pascal-delphi
+  FEATURE_BRANCH: pascal-understood
 
 jobs:
   sync-main:
@@ -25,21 +25,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: upstream-mirror
           fetch-depth: 0
 
-      # Regular merge (not --ff-only): main carries this workflow file,
-      # which upstream doesn't have, so main can never be a pure mirror
-      # again. A normal merge keeps that as its own commit and stays a
+      # Regular merge (not --ff-only): upstream-mirror carries this workflow
+      # file, which upstream doesn't have, so it can never be a byte-for-byte
+      # mirror again. A normal merge keeps that as its own commit and stays a
       # plain fast-forward push to origin — no force-push required.
-      - name: Merge upstream/main into main
+      - name: Merge upstream/main into upstream-mirror
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream "$UPSTREAM_URL"
           git fetch upstream main
           git merge upstream/main --no-edit
-          git push origin main
+          git push origin upstream-mirror
 
   sync-feature-branch:
     needs: sync-main
