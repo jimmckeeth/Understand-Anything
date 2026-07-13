@@ -206,8 +206,6 @@ importers:
 
   understand-anything-plugin/packages/tree-sitter-dart-wasm: {}
 
-  understand-anything-plugin/packages/tree-sitter-pascal-wasm: {}
-
 packages:
 
   '@ampproject/remapping@2.3.0':
