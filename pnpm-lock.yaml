@@ -63,9 +63,6 @@ importers:
       '@understand-anything/tree-sitter-dart-wasm':
         specifier: workspace:*
         version: link:../tree-sitter-dart-wasm
-      '@understand-anything/tree-sitter-pascal-wasm':
-        specifier: workspace:*
-        version: link:../tree-sitter-pascal-wasm
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
@@ -87,6 +84,9 @@ importers:
       tree-sitter-javascript:
         specifier: ^0.25.0
         version: 0.25.0
+      tree-sitter-pascal:
+        specifier: github:jimmckeeth/tree-sitter-pascal#v0.11.0
+        version: tree-sitter-pascal#v0.11.0@https://codeload.github.com/jimmckeeth/tree-sitter-pascal/tar.gz/b17ae16b760eddf65394e4b50f305822ccc3b8f9
       tree-sitter-php:
         specifier: ^0.23.11
         version: 0.23.12
@@ -2882,6 +2882,10 @@ packages:
     peerDependenciesMeta:
       tree-sitter:
         optional: true
+
+  tree-sitter-pascal#v0.11.0@https://codeload.github.com/jimmckeeth/tree-sitter-pascal/tar.gz/b17ae16b760eddf65394e4b50f305822ccc3b8f9:
+    resolution: {tarball: https://codeload.github.com/jimmckeeth/tree-sitter-pascal/tar.gz/b17ae16b760eddf65394e4b50f305822ccc3b8f9}
+    version: 0.0.0
 
   tree-sitter-php@0.23.12:
     resolution: {integrity: sha512-VwkBVOahhC2NYXK/Fuqq30NxuL/6c2hmbxEF4jrB7AyR5rLc7nT27mzF3qoi+pqx9Gy2AbXnGezF7h4MeM6YRA==}
@@ -6283,6 +6287,8 @@ snapshots:
     dependencies:
       node-addon-api: 8.6.0
       node-gyp-build: 4.8.4
+
+  tree-sitter-pascal#v0.11.0@https://codeload.github.com/jimmckeeth/tree-sitter-pascal/tar.gz/b17ae16b760eddf65394e4b50f305822ccc3b8f9: {}
 
   tree-sitter-php@0.23.12:
     dependencies:
