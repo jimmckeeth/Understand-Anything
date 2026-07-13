@@ -1,0 +1,110 @@
+name: Sync with upstream
+
+# Keeps this fork's upstream-mirror branch merged up from
+# Egonex-AI/Understand-Anything, and tries to bring those same changes into
+# pascal-understood (the default branch) as a reviewable PR. That branch has
+# diverged too far from upstream to auto-merge blindly, so a conflicting
+# sync files an issue instead of force-landing anything.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  UPSTREAM_URL: https://github.com/Egonex-AI/Understand-Anything.git
+  FEATURE_BRANCH: pascal-understood
+
+jobs:
+  sync-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: upstream-mirror
+          fetch-depth: 0
+
+      # Regular merge (not --ff-only): upstream-mirror carries this workflow
+      # file, which upstream doesn't have, so it can never be a byte-for-byte
+      # mirror again. A normal merge keeps that as its own commit and stays a
+      # plain fast-forward push to origin — no force-push required.
+      - name: Merge upstream/main into upstream-mirror
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream main
+          git merge upstream/main --no-edit
+          git push origin upstream-mirror
+
+  sync-feature-branch:
+    needs: sync-main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+
+      - name: Attempt merge on a throwaway branch
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream main
+          BASE_SHA=$(git rev-parse HEAD)
+          SYNC_BRANCH="sync/upstream-into-${FEATURE_BRANCH//\//-}"
+          git checkout -b "$SYNC_BRANCH"
+          if git merge upstream/main --no-edit; then
+            if [ "$(git rev-parse HEAD)" = "$BASE_SHA" ]; then
+              echo "status=up-to-date" >> "$GITHUB_OUTPUT"
+            else
+              echo "status=clean" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            git merge --abort
+            echo "status=conflict" >> "$GITHUB_OUTPUT"
+          fi
+          echo "sync_branch=$SYNC_BRANCH" >> "$GITHUB_OUTPUT"
+
+      # Force-push is safe here: this is a disposable bot-owned integration
+      # branch that only ever holds "upstream merged into FEATURE_BRANCH",
+      # regenerated fresh each run — never the feature branch itself.
+      - name: Push sync branch and open/update PR
+        if: steps.merge.outputs.status == 'clean'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push origin "${{ steps.merge.outputs.sync_branch }}" --force
+          existing=$(gh pr list --head "${{ steps.merge.outputs.sync_branch }}" --state open --json number --jq '.[0].number')
+          if [ -z "$existing" ]; then
+            gh pr create \
+              --base "$FEATURE_BRANCH" \
+              --head "${{ steps.merge.outputs.sync_branch }}" \
+              --title "chore: sync upstream/main into $FEATURE_BRANCH" \
+              --body "Automated merge of upstream/main. Review before merging — this branch has diverged from upstream, so please check nothing in the feature work got clobbered."
+          fi
+
+      - name: File an issue on conflict
+        if: steps.merge.outputs.status == 'conflict'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --search "Upstream sync conflict on $FEATURE_BRANCH in:title" --state open --json number --jq '.[0].number')
+          if [ -z "$existing" ]; then
+            gh issue create \
+              --title "Upstream sync conflict on $FEATURE_BRANCH" \
+              --body "Automated sync could not merge \`upstream/main\` into \`$FEATURE_BRANCH\` cleanly. Resolve manually:
+
+\`\`\`
+git fetch upstream main
+git checkout $FEATURE_BRANCH
+git merge upstream/main
+# resolve conflicts, then commit and push
+\`\`\`"
+          fi
