@@ -5,7 +5,7 @@ export const pascalConfig = {
   displayName: "Pascal",
   extensions: [".pas", ".dpr", ".lpr", ".pp"],
   treeSitter: {
-    wasmPackage: "@understand-anything/tree-sitter-pascal-wasm",
+    wasmPackage: "tree-sitter-pascal",
     wasmFile: "tree-sitter-pascal.wasm",
   },
   concepts: [

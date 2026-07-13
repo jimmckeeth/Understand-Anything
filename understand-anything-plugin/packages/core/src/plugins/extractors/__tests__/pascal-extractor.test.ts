@@ -13,9 +13,7 @@ beforeAll(async () => {
   Parser = mod.Parser;
   Language = mod.Language;
   await Parser.init();
-  const wasmPath = require.resolve(
-    "@understand-anything/tree-sitter-pascal-wasm/tree-sitter-pascal.wasm",
-  );
+  const wasmPath = require.resolve("tree-sitter-pascal/tree-sitter-pascal.wasm");
   pascalLang = await Language.load(wasmPath);
 });
 

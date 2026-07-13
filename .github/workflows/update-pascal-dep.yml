@@ -1,0 +1,86 @@
+name: Update Pascal grammar dependency
+
+# Checks jimmckeeth/tree-sitter-pascal for a newer stable release tag
+# (vX.Y.Z only -- skips the noisy per-commit prerelease tags like
+# v0.11.0-9e9f070) than the one pinned in core/package.json's
+# `github:jimmckeeth/tree-sitter-pascal#<tag>` dependency. If there's a
+# newer one, bumps the pin, relocks, and opens a PR for review -- git-hosted
+# dependencies aren't tracked by Dependabot, so this is the substitute.
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  UPSTREAM_REPO: jimmckeeth/tree-sitter-pascal
+  PACKAGE_JSON: understand-anything-plugin/packages/core/package.json
+
+jobs:
+  update-pascal-dep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pascal-understood
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Determine current and latest stable tags
+        id: tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(grep -oP '"tree-sitter-pascal": "github:[^#]+#\K[^"]+' "$PACKAGE_JSON")
+          latest=$(gh api "repos/$UPSTREAM_REPO/releases" --jq '.[].tag_name' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V \
+            | tail -1)
+          if [ -z "$latest" ]; then
+            echo "::error::No stable vX.Y.Z release tag found for $UPSTREAM_REPO -- refusing to update the pin"
+            exit 1
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "Current: $current / Latest stable: $latest"
+
+      - name: Bump pin and relock
+        if: steps.tags.outputs.current != steps.tags.outputs.latest
+        run: |
+          current="${{ steps.tags.outputs.current }}"
+          latest="${{ steps.tags.outputs.latest }}"
+          sed -i "s|#${current}\"|#${latest}\"|" "$PACKAGE_JSON"
+          pnpm install --no-frozen-lockfile
+
+      - name: Push branch and open/update PR
+        if: steps.tags.outputs.current != steps.tags.outputs.latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current="${{ steps.tags.outputs.current }}"
+          latest="${{ steps.tags.outputs.latest }}"
+          branch="bump/pascal-${latest}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add "$PACKAGE_JSON" pnpm-lock.yaml
+          git commit -m "chore(pascal): bump tree-sitter-pascal $current -> $latest"
+          git push origin "$branch" --force
+          existing=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')
+          if [ -z "$existing" ]; then
+            gh pr create \
+              --base pascal-understood \
+              --head "$branch" \
+              --title "chore(pascal): bump tree-sitter-pascal $current -> $latest" \
+              --body "Automated bump of the pinned \`tree-sitter-pascal\` release tag. Review before merging: https://github.com/$UPSTREAM_REPO/releases/tag/$latest"
+          fi
